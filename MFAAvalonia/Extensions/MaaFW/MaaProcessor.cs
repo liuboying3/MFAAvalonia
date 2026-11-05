@@ -716,6 +716,20 @@ public class MaaProcessor
             ViewModel?.SetConnected(false);
             var screenshotTaskerStopped = DetachScreenshotTasker(requireAllStopped);
 
+            // 释放旧 Tasker 持有的原生资源（DisposeOptions.All = Resource + Controller）。
+            // Stop() 只停止任务循环，不会释放 MaaResource（OCR 模型 / ONNX Runtime 内存池），
+            // 不 Dispose 会导致每次切换实例都遗留一整套原生资源，内存持续增长。
+            if (oldTasker != null)
+            {
+                try
+                {
+                    oldTasker.Dispose();
+                }
+                catch (Exception e)
+                {
+                    LoggerHelper.Warning($"释放旧 MaaTasker 失败：{e.Message}");
+                }
+            }
             if (requireAllStopped && (!taskerStopped || !agentsStopped || !screenshotTaskerStopped))
                 throw new InvalidOperationException("更新前未能停止所有 MaaTasker、截图 Tasker 或 Agent 进程。");
         }
